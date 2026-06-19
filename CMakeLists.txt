@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.16)
+project(NativeOggEncoder C)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+
+option(NOE_BUILD_SHARED "Build shared library" ON)
+option(NOE_BUILD_STATIC "Build static library" OFF)
+
+add_subdirectory(deps)
+
+set(NOE_SOURCES src/native_ogg_encoder.c)
+
+if(NOE_BUILD_SHARED)
+    add_library(native_ogg_encoder SHARED ${NOE_SOURCES})
+    target_include_directories(native_ogg_encoder PUBLIC include)
+    target_link_libraries(native_ogg_encoder PRIVATE ogg vorbis vorbisenc speex_resampler)
+
+    if(ANDROID)
+        target_link_options(native_ogg_encoder PRIVATE -Wl,--gc-sections -Wl,--strip-all)
+    endif()
+endif()
+
+if(NOE_BUILD_STATIC)
+    add_library(native_ogg_encoder_static STATIC ${NOE_SOURCES})
+    target_include_directories(native_ogg_encoder_static PUBLIC include)
+    target_link_libraries(native_ogg_encoder_static PRIVATE ogg vorbis vorbisenc speex_resampler)
+    set_target_properties(native_ogg_encoder_static PROPERTIES OUTPUT_NAME native_ogg_encoder)
+endif()
