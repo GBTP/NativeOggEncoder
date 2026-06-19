@@ -120,6 +120,7 @@ jobs:
       # --- Desktop (Windows / Linux / macOS) ---
       - name: Build (Desktop)
         if: "!contains(matrix.platform, 'android') && matrix.platform != 'aarch64-ios'"
+        shell: bash
         run: |
           cmake -S . -B build \
             ${{ matrix.cmake-args }} \
