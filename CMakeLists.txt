@@ -19,7 +19,9 @@ if(NOE_BUILD_SHARED)
     target_link_libraries(native_ogg_encoder PRIVATE ogg vorbis vorbisenc speex_resampler)
 
     if(ANDROID)
-        target_link_options(native_ogg_encoder PRIVATE -Wl,--gc-sections -Wl,--strip-all)
+        target_link_options(native_ogg_encoder PRIVATE -Wl,--gc-sections -Wl,--strip-all -Wl,-z,max-page-size=16384)
+    elseif(UNIX AND NOT APPLE)
+        target_link_options(native_ogg_encoder PRIVATE -Wl,-z,max-page-size=16384)
     endif()
 endif()
 
