@@ -16,11 +16,13 @@ add_library(speex_resampler STATIC
     speex_resampler/resample.c
 )
 target_include_directories(speex_resampler PUBLIC speex_resampler)
-target_compile_definitions(speex_resampler PRIVATE
+target_compile_definitions(speex_resampler PUBLIC
     OUTSIDE_SPEEX
+    RANDOM_PREFIX=noe
+)
+target_compile_definitions(speex_resampler PRIVATE
     FLOATING_POINT
     EXPORT=
-    RANDOM_PREFIX=noe
 )
 if(NOT MSVC)
     target_link_libraries(speex_resampler PRIVATE m)

@@ -1,2 +1,8 @@
 build/
 *.msi
+
+# Native library artifacts (built by CI)
+Plugins/NativeOggEncoder/**/*.dll
+Plugins/NativeOggEncoder/**/*.so
+Plugins/NativeOggEncoder/**/*.dylib
+Plugins/NativeOggEncoder/**/*.a

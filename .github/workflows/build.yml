@@ -1,0 +1,201 @@
+name: Build Native Libraries
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Desktop
+          - platform: x64-windows
+            os: windows-latest
+            cmake-args: -A x64
+            shared: ON
+            artifact: build/Release/native_ogg_encoder.dll
+            artifact-name: native_ogg_encoder.dll
+
+          - platform: x64-linux
+            os: ubuntu-latest
+            cmake-args: -DCMAKE_BUILD_TYPE=Release
+            shared: ON
+            artifact: build/libnative_ogg_encoder.so
+            artifact-name: libnative_ogg_encoder.so
+
+          - platform: aarch64-macos
+            os: macos-latest
+            cmake-args: -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_BUILD_TYPE=Release
+            shared: ON
+            artifact: build/libnative_ogg_encoder.dylib
+            artifact-name: libnative_ogg_encoder.dylib
+
+          - platform: x64-macos
+            os: macos-13
+            cmake-args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_BUILD_TYPE=Release
+            shared: ON
+            artifact: build/libnative_ogg_encoder.dylib
+            artifact-name: libnative_ogg_encoder.dylib
+
+          # Android
+          - platform: aarch64-android
+            os: ubuntu-latest
+            android-abi: arm64-v8a
+            shared: ON
+
+          - platform: arm-neon-android
+            os: ubuntu-latest
+            android-abi: armeabi-v7a
+            shared: ON
+
+          - platform: x64-android
+            os: ubuntu-latest
+            android-abi: x86_64
+            shared: ON
+
+          - platform: x86-android
+            os: ubuntu-latest
+            android-abi: x86
+            shared: ON
+
+          # iOS
+          - platform: aarch64-ios
+            os: macos-latest
+            shared: OFF
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # --- Android ---
+      - name: Build (Android)
+        if: contains(matrix.platform, 'android')
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.android-abi }} \
+            -DANDROID_PLATFORM=android-21 \
+            -DNOE_BUILD_SHARED=ON \
+            -DNOE_BUILD_STATIC=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --parallel
+
+      - name: Prepare artifact (Android)
+        if: contains(matrix.platform, 'android')
+        run: |
+          mkdir -p output
+          cp build/libnative_ogg_encoder.so output/
+
+      # --- iOS ---
+      - name: Build (iOS)
+        if: matrix.platform == 'aarch64-ios'
+        run: |
+          cmake -S . -B build \
+            -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DNOE_BUILD_SHARED=OFF \
+            -DNOE_BUILD_STATIC=ON
+          cmake --build build --config Release
+
+      - name: Merge static libs (iOS)
+        if: matrix.platform == 'aarch64-ios'
+        run: |
+          mkdir -p output
+          libtool -static -o output/libnative_ogg_encoder.a \
+            build/Release-iphoneos/libnative_ogg_encoder.a \
+            build/deps/libogg/Release-iphoneos/libogg.a \
+            build/deps/libvorbis/lib/Release-iphoneos/libvorbis.a \
+            build/deps/libvorbis/lib/Release-iphoneos/libvorbisenc.a \
+            build/deps/Release-iphoneos/libspeex_resampler.a
+
+      # --- Desktop (Windows / Linux / macOS) ---
+      - name: Build (Desktop)
+        if: "!contains(matrix.platform, 'android') && matrix.platform != 'aarch64-ios'"
+        run: |
+          cmake -S . -B build \
+            ${{ matrix.cmake-args }} \
+            -DNOE_BUILD_SHARED=${{ matrix.shared }} \
+            -DNOE_BUILD_STATIC=OFF
+          cmake --build build --config Release --parallel
+
+      - name: Prepare artifact (Desktop)
+        if: "!contains(matrix.platform, 'android') && matrix.platform != 'aarch64-ios'"
+        run: |
+          mkdir -p output
+          cp "${{ matrix.artifact }}" output/
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: output/
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Assemble Unity plugin
+        run: |
+          PLUGIN_DIR="Plugins/NativeOggEncoder"
+
+          platforms=(
+            "x64-windows"
+            "x64-linux"
+            "aarch64-macos"
+            "x64-macos"
+            "aarch64-android"
+            "arm-neon-android"
+            "x64-android"
+            "x86-android"
+            "aarch64-ios"
+          )
+
+          for p in "${platforms[@]}"; do
+            mkdir -p "$PLUGIN_DIR/$p"
+            cp artifacts/$p/* "$PLUGIN_DIR/$p/"
+          done
+
+      - name: Upload unity-plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: NativeOggEncoder-Unity-Plugin
+          path: Plugins/NativeOggEncoder/
+
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download plugin package
+        uses: actions/download-artifact@v4
+        with:
+          name: NativeOggEncoder-Unity-Plugin
+          path: NativeOggEncoder/
+
+      - name: Create zip
+        run: zip -r NativeOggEncoder-${{ github.ref_name }}.zip NativeOggEncoder/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: NativeOggEncoder-${{ github.ref_name }}.zip
+          generate_release_notes: true
