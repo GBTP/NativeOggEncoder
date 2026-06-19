@@ -35,7 +35,7 @@ jobs:
             artifact-name: libnative_ogg_encoder.dylib
 
           - platform: x64-macos
-            os: macos-13
+            os: macos-latest
             cmake-args: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_BUILD_TYPE=Release
             shared: ON
             artifact: build/libnative_ogg_encoder.dylib
