@@ -1,12 +1,13 @@
 #include "time_stretch.h"
 #include "native_ogg_encoder.h"
-#include "signalsmith-stretch.h"
 
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <algorithm>
 #include <vector>
+
+#include "signalsmith-stretch.h"
 
 extern "C" {
 
