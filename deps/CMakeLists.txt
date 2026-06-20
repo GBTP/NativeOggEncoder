@@ -27,3 +27,13 @@ target_compile_definitions(speex_resampler PRIVATE
 if(NOT MSVC)
     target_link_libraries(speex_resampler PRIVATE m)
 endif()
+
+# signalsmith-stretch (header-only C++)
+add_library(signalsmith_linear INTERFACE)
+target_include_directories(signalsmith_linear INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/signalsmith-linear/include)
+
+add_library(signalsmith_stretch INTERFACE)
+target_include_directories(signalsmith_stretch INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/signalsmith-stretch)
+target_link_libraries(signalsmith_stretch INTERFACE signalsmith_linear)

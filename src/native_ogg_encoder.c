@@ -22,6 +22,14 @@ static void set_error(const char* msg) {
     s_error_buf[sizeof(s_error_buf) - 1] = '\0';
 }
 
+void noe_set_error(const char* msg) {
+    set_error(msg);
+}
+
+void noe_clear_error(void) {
+    s_has_error = 0;
+}
+
 NOE_EXPORT const char* noe_get_error(void) {
     return s_has_error ? s_error_buf : NULL;
 }
@@ -68,7 +76,7 @@ static int flush_ogg_pages(ogg_stream_state* os, Buffer* buf, int force) {
     return 0;
 }
 
-static float* resample_channel(const float* input, int32_t in_frames,
+static float* resample_channel_impl(const float* input, int32_t in_frames,
                                int32_t in_rate, int32_t out_rate, int32_t* out_frames) {
     *out_frames = (int32_t)((int64_t)in_frames * out_rate / in_rate);
     float* output = (float*)malloc(*out_frames * sizeof(float));
@@ -90,7 +98,7 @@ static float* resample_channel(const float* input, int32_t in_frames,
     return output;
 }
 
-static int32_t encode_core(const float* const* channels, int32_t num_frames,
+static int32_t encode_core_impl(const float* const* channels, int32_t num_frames,
                            int32_t num_channels, int32_t sample_rate, float quality,
                            uint8_t** out_data, int32_t* out_size) {
     vorbis_info vi;
@@ -228,7 +236,7 @@ NOE_EXPORT int32_t noe_encode_planar(
     if (input_sample_rate != output_sample_rate) {
         for (int ch = 0; ch < channels; ch++) {
             int32_t out_frames;
-            resampled[ch] = resample_channel(channel_ptrs[ch], num_frames,
+            resampled[ch] = resample_channel_impl(channel_ptrs[ch], num_frames,
                                              input_sample_rate, output_sample_rate, &out_frames);
             if (!resampled[ch]) {
                 for (int j = 0; j < ch; j++) free(resampled[j]);
@@ -244,7 +252,7 @@ NOE_EXPORT int32_t noe_encode_planar(
         }
     }
 
-    int32_t result = encode_core(final_channels, final_frames, channels,
+    int32_t result = encode_core_impl(final_channels, final_frames, channels,
                                  output_sample_rate, quality, out_data, out_size);
 
     for (int ch = 0; ch < channels; ch++) {
@@ -293,4 +301,15 @@ NOE_EXPORT int32_t noe_encode_interleaved(
         free(deinterleaved[ch]);
     }
     return result;
+}
+
+float* resample_channel(const float* input, int32_t in_frames,
+                        int32_t in_rate, int32_t out_rate, int32_t* out_frames) {
+    return resample_channel_impl(input, in_frames, in_rate, out_rate, out_frames);
+}
+
+int32_t encode_core(const float* const* channels, int32_t num_frames,
+                    int32_t num_channels, int32_t sample_rate, float quality,
+                    uint8_t** out_data, int32_t* out_size) {
+    return encode_core_impl(channels, num_frames, num_channels, sample_rate, quality, out_data, out_size);
 }

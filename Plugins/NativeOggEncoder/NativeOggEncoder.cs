@@ -22,6 +22,19 @@ public static class NativeOggEncoder
     );
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int noe_encode_planar_stretched(
+        IntPtr[] channelPtrs,
+        int numFrames,
+        int channels,
+        int inputSampleRate,
+        int outputSampleRate,
+        float speed,
+        float quality,
+        out IntPtr outData,
+        out int outSize
+    );
+
+    [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     private static extern void noe_free(IntPtr data);
 
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
@@ -33,6 +46,11 @@ public static class NativeOggEncoder
     }
 
     public static byte[] ConvertToBytes(float[][] samples, int inputSampleRate, int outputSampleRate, int channels, float quality)
+    {
+        return ConvertToBytes(samples, inputSampleRate, outputSampleRate, channels, quality, 1.0f);
+    }
+
+    public static byte[] ConvertToBytes(float[][] samples, int inputSampleRate, int outputSampleRate, int channels, float quality, float speed)
     {
         if (samples == null || samples.Length == 0)
             throw new ArgumentException("samples cannot be null or empty");
@@ -51,11 +69,26 @@ public static class NativeOggEncoder
                 ptrs[ch] = handles[ch].AddrOfPinnedObject();
             }
 
-            int result = noe_encode_planar(
-                ptrs, numFrames, actualChannels,
-                inputSampleRate, outputSampleRate,
-                quality, out IntPtr outData, out int outSize
-            );
+            int result;
+            IntPtr outData;
+            int outSize;
+
+            if (Math.Abs(speed - 1.0f) < 0.001f)
+            {
+                result = noe_encode_planar(
+                    ptrs, numFrames, actualChannels,
+                    inputSampleRate, outputSampleRate,
+                    quality, out outData, out outSize
+                );
+            }
+            else
+            {
+                result = noe_encode_planar_stretched(
+                    ptrs, numFrames, actualChannels,
+                    inputSampleRate, outputSampleRate,
+                    speed, quality, out outData, out outSize
+                );
+            }
 
             if (result != 0)
             {

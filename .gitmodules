@@ -4,3 +4,9 @@
 [submodule "deps/libvorbis"]
 	path = deps/libvorbis
 	url = https://github.com/xiph/vorbis.git
+[submodule "deps/signalsmith-stretch"]
+	path = deps/signalsmith-stretch
+	url = https://github.com/Signalsmith-Audio/signalsmith-stretch.git
+[submodule "deps/signalsmith-linear"]
+	path = deps/signalsmith-linear
+	url = https://github.com/Signalsmith-Audio/linear.git
